@@ -273,3 +273,27 @@ fn grid_viewer_share_commits_draft_and_preserves_unsaved_state() {
     click(&mut h, "Close");
     assert!(h.state().dialog.is_none());
 }
+
+#[test]
+fn protected_share_handoff_requires_explicit_continue() {
+    let snapshots = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let capture = snapshots.clone();
+    let mut h = harness(Services { protected_share: Some(Box::new(move |bytes| capture.lock().unwrap().push(bytes))), ..Default::default() });
+    // Open the large-workbook branch directly: engine size routing has its own test.
+    let dialog =
+        gridcraft_ui_egui::dialogs::Dialog::open(h.state_mut(), "shareGridViewer", serde_json::json!({"requiresUpload": true, "bytes": 100000}));
+    h.state_mut().dialog = dialog;
+    h.run_steps(2);
+    assert!(snapshots.lock().unwrap().is_empty());
+    click(&mut h, "Close");
+    assert!(snapshots.lock().unwrap().is_empty());
+    let dialog =
+        gridcraft_ui_egui::dialogs::Dialog::open(h.state_mut(), "shareGridViewer", serde_json::json!({"requiresUpload": true, "bytes": 100000}));
+    h.state_mut().dialog = dialog;
+    h.run_steps(2);
+    click(&mut h, "Continue to protected sharing…");
+    assert_eq!(snapshots.lock().unwrap().len(), 1);
+    assert!(h.state().dialog.is_none());
+    let snapshots = snapshots.lock().unwrap();
+    assert!(gridcraft_engine::io::open_bytes("Shared.xlsx", &snapshots[0]).is_ok());
+}

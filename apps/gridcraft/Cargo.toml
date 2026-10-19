@@ -19,11 +19,20 @@ serde_json = { workspace = true }
 log = { workspace = true }
 image = { workspace = true }
 
+[dev-dependencies]
+egui_kittest = { workspace = true, features = ["wgpu", "snapshot"] }
+
 [build-dependencies]
 # Icon + VERSIONINFO for gridcraft.exe; build.rs only uses it when the target is Windows.
 winresource = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "=2.12.1", default-features = false, features = ["tls"] }
+aes-gcm = "=0.10.3"
+pbkdf2 = "=0.12.2"
+sha2_10 = { package = "sha2", version = "0.10" }
+getrandom = "0.2"
+url = "2"
 craft-print = { git = "https://github.com/storytold/craft-libs", rev = "d27646a5f7c8b4fc85d9dd3213b8c88b58e0088d" }
 rfd = { workspace = true }
 arboard = { workspace = true }

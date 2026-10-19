@@ -16,7 +16,7 @@ fn share_is_a_query_and_does_not_open_dialogs_or_mark_work_saved() {
 }
 
 #[test]
-fn oversized_workbook_returns_error_instead_of_a_broken_link() {
+fn oversized_workbook_requests_protected_sharing_without_uploading() {
     let mut s = Session::new();
     s.new_workbook();
     // Unique pseudo-random strings resist ZIP compression; no large fixture needed.
@@ -33,7 +33,13 @@ fn oversized_workbook_returns_error_instead_of_a_broken_link() {
         })
         .collect();
     s.run("range.setValues", json!({"range":"A1:A2000", "values":rows})).unwrap();
-    let error = s.run("file.shareGridViewer", json!({})).unwrap_err();
-    assert!(error.to_string().contains("48 KiB"));
+    let undo = s.active().unwrap().undo.len();
+    let result = s.run("file.shareGridViewer", json!({})).unwrap();
+    assert_eq!(result["requiresUpload"], true);
+    assert!(result["bytes"].as_u64().unwrap() > 48 * 1024);
+    assert!(result.get("url").is_none());
+    assert!(result.get("base64").is_none());
+    assert!(s.ui_requests.is_empty());
+    assert_eq!(s.active().unwrap().undo.len(), undo);
     assert!(s.active().unwrap().is_dirty());
 }

@@ -164,6 +164,9 @@ pub struct Notice {
 /// Host services the platform shell provides (file pickers, opening URLs).
 #[derive(Default)]
 pub struct Services {
+    /// Open a host-owned consent/sign-in/password flow for a local XLSX snapshot.
+    /// The host must never upload until the user explicitly consents and submits.
+    pub protected_share: Option<Box<dyn Fn(Vec<u8>)>>,
     /// Desktop: discover configured printers on a worker.
     pub printers: Option<printing::Discover>,
     /// Desktop: submit the PDF with the chosen settings on a worker.

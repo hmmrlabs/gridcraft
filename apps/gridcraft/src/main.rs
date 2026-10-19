@@ -17,6 +17,7 @@ mod logging;
 #[cfg(target_os = "macos")]
 mod native_menu;
 mod print;
+mod protected_share;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -25,41 +26,49 @@ use gridcraft_engine::Session;
 use gridcraft_ui_egui::{Services, SheetApp};
 use serde_json::json;
 
-struct App(SheetApp, #[cfg(target_os = "macos")] Option<native_menu::NativeMenu>, #[cfg(target_os = "macos")] fmv_macos_events::Inbox);
+struct App {
+    sheet: SheetApp,
+    sharing: protected_share::Host,
+    #[cfg(target_os = "macos")]
+    native_menu: Option<native_menu::NativeMenu>,
+    #[cfg(target_os = "macos")]
+    apple_events: fmv_macos_events::Inbox,
+}
 
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(target_os = "macos")]
         {
-            if self.1.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
-                self.1 = Some(native_menu::NativeMenu::install(ctx));
+            if self.native_menu.is_none() && std::env::var_os("GRIDCRAFT_NO_NATIVE_MENU").is_none() {
+                self.native_menu = Some(native_menu::NativeMenu::install(ctx));
             }
-            if let Some(m) = &self.1 {
-                m.poll(&mut self.0, ctx);
+            if let Some(m) = &self.native_menu {
+                m.poll(&mut self.sheet, ctx);
             }
-            apple_events::poll(&self.2, &mut self.0, ctx);
+            apple_events::poll(&self.apple_events, &mut self.sheet, ctx);
         }
-        self.0.logic(ctx);
-        self.0.poll_printing(ctx);
-        if ctx.input(|input| input.viewport().close_requested()) && self.0.printing.busy() {
+        self.sheet.logic(ctx);
+        self.sheet.poll_printing(ctx);
+        if ctx.input(|input| input.viewport().close_requested()) && self.sheet.printing.busy() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
     }
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
-        self.0.raw_input_hook(raw);
+        self.sheet.raw_input_hook(raw);
         // Files dropped on the window open as workbooks.
         for f in std::mem::take(&mut raw.dropped_files) {
             if let Some(p) = f.path().to_str().map(str::to_string).filter(|p| !p.is_empty()) {
-                self.0.open_path(&p);
+                self.sheet.open_path(&p);
             }
         }
     }
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.0.ui(ui);
+        self.sheet.ui(ui);
+        self.sharing.ui(ui.ctx(), &mut self.sheet);
     }
     fn on_exit(&mut self) {
         print::finish_pending_jobs();
-        save_prefs(&self.0);
+        save_prefs(&self.sheet);
         // macOS (#117): end the process here, before eframe tears the window down. AccessKit's
         // macOS adapter subclasses the window's content view and restores its class on teardown;
         // AppKit's Touch Bar support observes that view (KVO), so in the next display cycle
@@ -357,13 +366,15 @@ fn main() -> eframe::Result<()> {
                         Err(e) => log::error!("control channel on port {port}: {e}"),
                     }
                 }
-                Ok(Box::new(App(
-                    app,
+                let sharing = protected_share::Host::attach(&mut app);
+                Ok(Box::new(App {
+                    sheet: app,
+                    sharing,
                     #[cfg(target_os = "macos")]
-                    None,
+                    native_menu: None,
                     #[cfg(target_os = "macos")]
-                    apple_events.connect(&cc.egui_ctx),
-                )))
+                    apple_events: apple_events.connect(&cc.egui_ctx),
+                }))
             }),
         )
     };

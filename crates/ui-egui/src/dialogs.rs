@@ -1164,22 +1164,50 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                     }
                 }
                 "shareGridViewer" => {
-                    ui.label("Share an editable snapshot of this workbook.");
-                    ui.label("Anyone with the complete link can read every sheet, including hidden sheets. Links are not encrypted and cannot be revoked.");
-                    ui.label("Workbook bytes stay in the link fragment; no upload. Changes made later need a new link. Some apps truncate long links.");
-                    ui.label("For a short link, open the viewer and choose Create short link. It stores an encrypted snapshot for 30 days.");
-                    let url = d.values.get("url").and_then(Json::as_str).unwrap_or("");
-                    ui.horizontal(|ui| {
-                        if ui.button("Copy Link").clicked() {
-                            ctx.copy_text(url.to_owned());
+                    if d.values.get("requiresUpload").and_then(Json::as_bool) == Some(true) {
+                        let bytes = d.values.get("bytes").and_then(Json::as_u64).unwrap_or(0);
+                        ui.label(format!("This workbook is {:.1} KiB, too large for a self-contained link.", bytes as f64 / 1024.0));
+                        ui.label("Protected sharing needs your consent to store an encrypted copy for 30 days, creator sign-in, and a separate share password.");
+                        ui.label("All sheets, including hidden sheets, will be included. Nothing has been uploaded.");
+                        if app.services.protected_share.is_some() {
+                            if ui.button("Continue to protected sharing…").clicked() {
+                                match app.run("file.saveBytes", json!({"format": "xlsx"})) {
+                                    Ok(value) => {
+                                        if let Some(bytes) = value.get("base64").and_then(Json::as_str).and_then(gridcraft_engine::io::base64_decode)
+                                            && let Some(start) = &app.services.protected_share
+                                        {
+                                            start(bytes);
+                                            open = false;
+                                        }
+                                    }
+                                    Err(error) => app.alert(error),
+                                }
+                            }
+                        } else {
+                            ui.label("Protected sharing is not connected in this build. Save a copy, open it in Grid Viewer, then choose Create short link when signup is available.");
+                            if ui.button("Open Grid Viewer").clicked() {
+                                ctx.open_url(egui::OpenUrl::new_tab("https://grid-viewer.pages.dev/grid"));
+                            }
                         }
-                        if ui.button("Open Viewer / Shorten Link").clicked() {
-                            ctx.open_url(egui::OpenUrl::new_tab(url));
-                        }
-                        if ui.button("Close").clicked() {
-                            open = false;
-                        }
-                    });
+                        if ui.button("Close").clicked() { open = false; }
+                    } else {
+                        ui.label("Share an editable snapshot of this workbook.");
+                        ui.label("Anyone with the complete link can read every sheet, including hidden sheets. Links are not encrypted and cannot be revoked.");
+                        ui.label("Workbook bytes stay in the link fragment; no upload. Changes made later need a new link. Some apps truncate long links.");
+                        ui.label("For a short link, open the viewer and choose Create short link. It stores an encrypted snapshot for 30 days.");
+                        let url = d.values.get("url").and_then(Json::as_str).unwrap_or("");
+                        ui.horizontal(|ui| {
+                            if ui.button("Copy Link").clicked() {
+                                ctx.copy_text(url.to_owned());
+                            }
+                            if ui.button("Open Viewer / Shorten Link").clicked() {
+                                ctx.open_url(egui::OpenUrl::new_tab(url));
+                            }
+                            if ui.button("Close").clicked() {
+                                open = false;
+                            }
+                        });
+                    }
                 }
                 "saveCopy" => {
                     let fmt = d.values.get("format").and_then(Json::as_str).unwrap_or("xlsx").to_string();
