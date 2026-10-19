@@ -150,6 +150,13 @@ impl Dialog {
                 vec![Number { key: "width", label: "Standard column width (pixels):" }],
                 json!({"width": 64}),
             ),
+            "renameWorkbook" => Dialog::form(
+                "renameWorkbook",
+                "Rename Workbook",
+                "file.rename",
+                vec![Text { key: "name", label: "Workbook name:" }],
+                json!({"name": app.session.active().map(|d| d.display_title())}),
+            ),
             "renameSheet" => Dialog::form(
                 "renameSheet",
                 "Rename Sheet",

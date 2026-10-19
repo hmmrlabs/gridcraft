@@ -3344,3 +3344,20 @@ fn csv_as_text_keeps_identifier_columns_as_written() {
     let saved = s.execute("file.saveBytes", json!({"format": "csv"})).unwrap();
     assert_eq!(crate::io::base64_decode(saved["base64"].as_str().unwrap()).unwrap(), csv.replace('\n', "\r\n").as_bytes());
 }
+
+#[test]
+fn rename_workbook_keeps_cells_and_sheet_names_and_detaches_source() {
+    let mut s = s();
+    s.execute("cell.set", json!({"cell": "A1", "input": "123"})).unwrap();
+    let sheets: Vec<_> = s.doc().unwrap().wb.sheets.iter().map(|s| s.name.clone()).collect();
+    s.doc_mut().unwrap().path = Some("/tmp/original.xlsx".into());
+    s.execute("file.rename", json!({"name": "  Forecast.xlsx  "})).unwrap();
+    assert_eq!(s.doc().unwrap().display_title(), "Forecast.xlsx");
+    assert!(s.doc().unwrap().path.is_none());
+    assert_eq!(v(&s, "A1"), Value::Number(123.0));
+    assert_eq!(s.doc().unwrap().wb.sheets.iter().map(|s| s.name.clone()).collect::<Vec<_>>(), sheets);
+    for params in [json!({}), json!({"name":" "}), json!({"name":"../bad.xlsx"}), json!({"name":"bad\n.xlsx"})] {
+        assert!(s.execute("file.rename", params).is_err());
+        assert_eq!(s.doc().unwrap().display_title(), "Forecast.xlsx");
+    }
+}

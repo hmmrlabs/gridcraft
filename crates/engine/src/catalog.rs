@@ -8,6 +8,7 @@ pub const CATALOG: &[(&str, &str, &str, &str)] = &[
     ("file.new", "File", "File", "New"),
     ("file.open", "File", "File", "Open"),
     ("file.save", "File", "File", "Save"),
+    ("file.rename", "File", "File", "Rename Workbook"),
     ("file.saveAs", "File", "File", "Save As"),
     ("file.close", "File", "File", "Close"),
     ("file.print", "File", "File", "Print"),

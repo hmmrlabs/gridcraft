@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~25 points of "ready for real work" and ~160–240 h away
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-19 · **Change:** minor (rows auto-fit oversized fonts on open and whole-row/column formatting) · **Target:** Microsoft Excel (Microsoft 365)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-19 · **Change:** minor (double-click workbook title rename; rows auto-fit oversized fonts on open and whole-row/column formatting) · **Target:** Microsoft Excel (Microsoft 365)
 
 GridCraft aims at full Microsoft Excel parity, and at being better in places: faster, open (XLSX
 is the native format), fully scriptable by agents (MCP, control channel, CLI), and on the web.
@@ -18,6 +18,8 @@ This page is the summary. The detail is in:
 - [`docs/architecture.md`](docs/architecture.md): how it is built
 
 Fork addition (2026-10-19): [Hammer Sheets sharing](docs/grid-viewer-sharing.md) in the Share menu; local snapshot links and browser short-link handoff. Work in progress: oversized-workbook routing and explicit protected-sharing host hook; native consent/authentication/encryption/upload host, optional Home cloud library, and Save As cloud entry added locally, pending WorkOS configuration and end-to-end verification.
+
+Fork addition (2026-10-19): centered workbook title supports double-click rename through `file.rename`; original source files are preserved.
 
 ## Headline numbers
 
@@ -195,6 +197,7 @@ Ranked; estimates in Opus 5.5 agent-hours. Detail and the full beta-gate list in
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-19 | minor | Double-click workbook title rename via `file.rename`; source file, cells and worksheet names preserved. |
 | 2026-10-12 | minor | Rows auto-fit oversized fonts on open and whole-row/column formatting (#833); progress log row |
 | 2026-10-12 | minor | Progress log: multi-area row/column delete (#758) |
 | 2026-10-12 | trivial | Progress log: XLSX chart sheets kept on save (#727) |

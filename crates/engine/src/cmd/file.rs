@@ -10,6 +10,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "file.new", "New Workbook", ["File"], Some("Cmd+N"), "{sample?: \"budget\"|\"sales\"|\"grades\"}", always, new_workbook),
         cmd!(noundo "file.open", "Open…", ["File"], Some("Cmd+O"), "{path} | {name, base64}, plus {password} for a password-protected workbook and {csvAsText?: bool} to keep every csv/tsv/txt field as text, with no number or date conversion (xlsx, xlsm, xls import, xlsb and ods data import, csv, tsv, txt, json)", always, open),
         cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?} (xlsx by default; .csv/.tsv/.json/.html/.pdf by extension)", has_doc, save),
+        cmd!(noundo "file.rename", "Rename Workbook", ["File"], None, "{name}: rename this workbook copy; clears its save path without renaming a file on disk", has_doc, rename_workbook),
         cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path} (.xlsx, .csv, .tsv, .json, .html, or .pdf: a PDF of the active sheet)", has_doc, save_as),
         cmd!(query "file.saveBytes", "Encode Workbook", [], None, "{format?: xlsx|csv|tsv|json|html} → {base64}", has_doc, save_bytes),
         cmd!(query "file.shareGridViewer", "Share with Hammer Sheets", ["File", "Share"], None, "{} → {url, bytes} up to 48 KiB, otherwise {requiresUpload, bytes, maxBytes}; no upload or dialog", has_doc, share_grid_viewer),
@@ -41,6 +42,25 @@ fn share_grid_viewer(s: &mut Session, _: &Json) -> Result<Json> {
     }
     let payload = crate::io::base64_encode(&bytes).trim_end_matches('=').replace('+', "-").replace('/', "_");
     Ok(json!({"url": format!("https://sheets.hammerlabs.ai/grid#xlsx={payload}"), "bytes": bytes.len()}))
+}
+
+fn rename_workbook(s: &mut Session, p: &Json) -> Result<Json> {
+    let name = str_param(p, "name").ok_or_else(|| bad("file.rename", "name is required"))?.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.len() > 240
+        || name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+    {
+        return Err(bad("file.rename", "Choose a nonempty filename of at most 240 bytes, without path separators or reserved characters."));
+    }
+    let doc = s.doc_mut()?;
+    if doc.display_title() != name {
+        doc.title = name.to_owned();
+        // Renaming the in-memory copy must not overwrite or rename the source file.
+        doc.path = None;
+    }
+    Ok(json!({"title": doc.display_title()}))
 }
 
 fn new_workbook(s: &mut Session, p: &Json) -> Result<Json> {
