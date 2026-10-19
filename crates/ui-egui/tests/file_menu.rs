@@ -244,3 +244,32 @@ fn a_cancelled_export_pdf_picker_writes_nothing() {
     assert!(h.state().message.is_none());
     assert!(h.state_mut().session.take_ui_requests().is_empty());
 }
+
+#[test]
+fn grid_viewer_share_commits_draft_and_preserves_unsaved_state() {
+    let mut h = harness(Services::default());
+    h.input_mut().events.push(egui::Event::Text("123".into()));
+    h.run_steps(2);
+    assert!(h.state().editor.is_some());
+    h.get_by_label("Share").click();
+    h.run_steps(3);
+    click(&mut h, "Share with Grid Viewer…");
+    let dialog = h.state().dialog.as_ref().unwrap();
+    assert_eq!(dialog.name(), "shareGridViewer");
+    let url = dialog.values.get("url").unwrap().as_str().unwrap();
+    let payload = url.strip_prefix("https://grid-viewer.pages.dev/grid#xlsx=").unwrap();
+    assert!(!payload.contains(['+', '/', '=']));
+    let mut base64 = payload.replace('-', "+").replace('_', "/");
+    while base64.len() % 4 != 0 {
+        base64.push('=');
+    }
+    let bytes = gridcraft_engine::io::base64_decode(&base64).unwrap();
+    let (wb, _) = gridcraft_engine::io::open_bytes("Shared.xlsx", &bytes).unwrap();
+    assert_eq!(wb.sheets[0].value(CellRef::new(0, 0)), Value::Number(123.0));
+    assert!(h.state().session.active().unwrap().is_dirty());
+    assert!(h.state().editor.is_none());
+    click(&mut h, "Copy Link");
+    assert!(h.state().dialog.is_some());
+    click(&mut h, "Close");
+    assert!(h.state().dialog.is_none());
+}

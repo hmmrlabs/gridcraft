@@ -737,6 +737,15 @@ impl SheetApp {
             return;
         }
         match name {
+            "shareGridViewer" => {
+                if !self.commit_edit(0, 0, false, false) {
+                    return;
+                }
+                match self.run("file.shareGridViewer", json!({})) {
+                    Ok(result) => self.dialog = dialogs::Dialog::open(self, name, result),
+                    Err(error) => self.alert(error),
+                }
+            }
             "open" => {
                 if let Some(start) = &self.services.open_async {
                     start();

@@ -130,7 +130,13 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                     app.open_dialog("commandSearch", json!({}));
                 }
                 let share = small_button(ui, Icon::Share, "Share", "Share: export or save a copy", true);
+                share.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Share"));
                 egui::Popup::menu(&share).show(|ui| {
+                    if ui.add_enabled(app.session.active().is_some(), egui::Button::new("Share with Grid Viewer…")).clicked() {
+                        app.open_dialog("shareGridViewer", json!({}));
+                        ui.close();
+                    }
+                    ui.separator();
                     if ui.button("Export as PDF…").clicked() {
                         app.run_or_alert("file.exportPdf", json!({}));
                     }

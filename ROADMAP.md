@@ -2,7 +2,7 @@
 
 **Stage: alpha** · next: beta, ~25 points of "ready for real work" and ~160–240 h away
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-12 · **Change:** minor (rows auto-fit oversized fonts on open and whole-row/column formatting) · **Target:** Microsoft Excel (Microsoft 365)
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-19 · **Change:** minor (rows auto-fit oversized fonts on open and whole-row/column formatting) · **Target:** Microsoft Excel (Microsoft 365)
 
 GridCraft aims at full Microsoft Excel parity, and at being better in places: faster, open (XLSX
 is the native format), fully scriptable by agents (MCP, control channel, CLI), and on the web.
@@ -16,6 +16,8 @@ This page is the summary. The detail is in:
   [file formats](docs/file-format-parity.md) · [UI](docs/ui-parity.md) ·
   [hardware](docs/hardware-parity.md) · [localization](docs/localization-parity.md)
 - [`docs/architecture.md`](docs/architecture.md): how it is built
+
+Fork addition (2026-10-19): [Grid Viewer sharing](docs/grid-viewer-sharing.md) in the Share menu; local snapshot links and browser short-link handoff.
 
 ## Headline numbers
 

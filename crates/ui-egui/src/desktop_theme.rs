@@ -33,6 +33,8 @@ impl DesktopTheme {
     pub fn start() -> Self {
         let (tx, rx) = channel();
         let started = std::thread::Builder::new().name("gridcraft-desktop-theme".into()).spawn(move || {
+            // Non-Linux builds keep a unit placeholder for the shared polling loop.
+            #[cfg_attr(not(target_os = "linux"), allow(clippy::let_unit_value))]
             let mut link = Link::default();
             let mut last = read(&mut link);
             if tx.send(last).is_err() {

@@ -774,6 +774,7 @@ impl Dialog {
                 dialog
             }
             "pickList" => Dialog::custom("pickList", "Pick From List", json!({})),
+            "shareGridViewer" => Dialog::custom("shareGridViewer", "Share with Grid Viewer", params.clone()),
             "saveCopy" => Dialog::custom("saveCopy", "Save a Copy", json!({"format": p("format")})),
             "saveChanges" => Dialog::custom("saveChanges", "Save Changes?", json!({"title": p("title")})),
             "start" => Dialog::custom("start", "GridCraft", json!({})),
@@ -1161,6 +1162,24 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                             open = false;
                         }
                     }
+                }
+                "shareGridViewer" => {
+                    ui.label("Share an editable snapshot of this workbook.");
+                    ui.label("Anyone with the complete link can read every sheet, including hidden sheets. Links are not encrypted and cannot be revoked.");
+                    ui.label("Workbook bytes stay in the link fragment; no upload. Changes made later need a new link. Some apps truncate long links.");
+                    ui.label("For a short link, open the viewer and choose Create short link. It stores an encrypted snapshot for 30 days.");
+                    let url = d.values.get("url").and_then(Json::as_str).unwrap_or("");
+                    ui.horizontal(|ui| {
+                        if ui.button("Copy Link").clicked() {
+                            ctx.copy_text(url.to_owned());
+                        }
+                        if ui.button("Open Viewer / Shorten Link").clicked() {
+                            ctx.open_url(egui::OpenUrl::new_tab(url));
+                        }
+                        if ui.button("Close").clicked() {
+                            open = false;
+                        }
+                    });
                 }
                 "saveCopy" => {
                     let fmt = d.values.get("format").and_then(Json::as_str).unwrap_or("xlsx").to_string();
