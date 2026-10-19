@@ -17,7 +17,7 @@ This page is the summary. The detail is in:
   [hardware](docs/hardware-parity.md) · [localization](docs/localization-parity.md)
 - [`docs/architecture.md`](docs/architecture.md): how it is built
 
-Fork addition (2026-10-19): [Grid Viewer sharing](docs/grid-viewer-sharing.md) in the Share menu; local snapshot links and browser short-link handoff. Work in progress: oversized-workbook routing and explicit protected-sharing host hook; native consent/authentication/encryption/upload host added locally, pending WorkOS configuration and end-to-end verification.
+Fork addition (2026-10-19): [Grid Viewer sharing](docs/grid-viewer-sharing.md) in the Share menu; local snapshot links and browser short-link handoff. Work in progress: oversized-workbook routing and explicit protected-sharing host hook; native consent/authentication/encryption/upload host, optional Home cloud library, and Save As cloud entry added locally, pending WorkOS configuration and end-to-end verification.
 
 ## Headline numbers
 

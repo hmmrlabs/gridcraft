@@ -297,3 +297,19 @@ fn protected_share_handoff_requires_explicit_continue() {
     let snapshots = snapshots.lock().unwrap();
     assert!(gridcraft_engine::io::open_bytes("Shared.xlsx", &snapshots[0]).is_ok());
 }
+
+#[test]
+fn grid_viewer_save_hands_off_snapshot_without_marking_local_work_saved() {
+    let snapshots = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+    let capture = snapshots.clone();
+    let mut h = harness(Services { protected_share: Some(Box::new(move |bytes| capture.lock().unwrap().push(bytes))), ..Default::default() });
+    h.state_mut().session.execute("cell.set", serde_json::json!({"cell":"A1", "input":"42"})).unwrap();
+    choose(&mut h, "Save As");
+    assert!(snapshots.lock().unwrap().is_empty(), "opening Save As must not save to the cloud");
+    click(&mut h, "Save on Grid Viewer…");
+    assert!(h.state().backstage.is_none());
+    assert!(h.state().session.active().unwrap().is_dirty(), "a cloud snapshot does not save the local file");
+    let snapshots = snapshots.lock().unwrap();
+    assert_eq!(snapshots.len(), 1);
+    assert!(snapshots[0].starts_with(b"PK"), "the consent dialog receives XLSX bytes");
+}

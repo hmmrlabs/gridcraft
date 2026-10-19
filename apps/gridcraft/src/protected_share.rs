@@ -14,9 +14,14 @@ enum Reply {
     Started(Value),
     Polled(Value),
     Uploaded(String),
+    Listed(Value),
 }
 pub struct ShareDialog {
     bytes: Vec<u8>,
+    library: bool,
+    sheets: Vec<Value>,
+    cursor: Option<String>,
+    loaded: bool,
     consent: bool,
     password: String,
     confirmation: String,
@@ -40,6 +45,10 @@ impl ShareDialog {
         let (sender, replies) = mpsc::channel();
         Ok(Self {
             bytes,
+            library: false,
+            sheets: Vec::new(),
+            cursor: None,
+            loaded: false,
             consent: false,
             password: String::new(),
             confirmation: String::new(),
@@ -56,8 +65,47 @@ impl ShareDialog {
             sender,
         })
     }
+    pub fn library() -> Self {
+        // Empty snapshot is valid; this mode never uploads workbook bytes.
+        let (sender, replies) = mpsc::channel();
+        Self {
+            bytes: Vec::new(),
+            library: true,
+            sheets: Vec::new(),
+            cursor: None,
+            loaded: false,
+            consent: false,
+            password: String::new(),
+            confirmation: String::new(),
+            session: String::new(),
+            verification_url: String::new(),
+            user_code: String::new(),
+            authenticated: false,
+            expires: 0.0,
+            next_poll: 0.0,
+            interval: 5.0,
+            pending: false,
+            error: String::new(),
+            replies,
+            sender,
+        }
+    }
+    pub fn inherit_login(&mut self, account: &Self) {
+        if account.authenticated {
+            self.session = account.session.clone();
+            self.authenticated = true;
+            self.expires = account.expires;
+        }
+    }
+    pub fn show_in(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        self.show_impl(&ctx, Some(ui));
+    }
     /// Returns (close dialog, newly created URL). Cancel never uploads workbook bytes.
     pub fn show(&mut self, ctx: &egui::Context) -> (bool, Option<String>) {
+        self.show_impl(ctx, None)
+    }
+    fn show_impl(&mut self, ctx: &egui::Context, container: Option<&mut egui::Ui>) -> (bool, Option<String>) {
         let now = now_ms();
         let replies: Vec<_> = self.replies.try_iter().collect();
         for reply in replies {
@@ -65,6 +113,12 @@ impl ShareDialog {
             match reply {
                 Err(error) => self.error = error,
                 Ok(Reply::Uploaded(url)) => return (true, Some(url)),
+                Ok(Reply::Listed(value)) => {
+                    if let Some(sheets) = value["sheets"].as_array() {
+                        self.sheets.extend(sheets.iter().take(50).cloned());
+                    }
+                    self.cursor = value["cursor"].as_str().filter(|_| value["complete"].as_bool() != Some(true)).map(str::to_owned);
+                }
                 Ok(Reply::Started(value)) => {
                     self.session = value["session"].as_str().unwrap_or("").to_owned();
                     self.verification_url = value["verificationUrl"].as_str().unwrap_or("").to_owned();
@@ -101,18 +155,29 @@ impl ShareDialog {
         if !self.session.is_empty() && now >= self.expires && !self.pending {
             self.session.clear();
             self.authenticated = false;
+            self.sheets.clear();
+            self.loaded = false;
             self.error = "Sign-in expired. Start again.".into();
         }
         let mut close = false;
         let mut start = false;
         let mut poll = false;
         let mut upload = false;
-        egui::Window::new("Share a protected workbook").collapsible(false).resizable(false).show(ctx, |ui| {
-            ui.label(format!("Workbook: {:.1} KiB · Link expires after 30 days", self.bytes.len() as f64 / 1024.0));
-            ui.label("All sheets, including hidden sheets, will be included.");
-            ui.label("GridCraft encrypts the workbook before uploading it to Cloudflare.");
-            ui.add_enabled(!self.pending, egui::Checkbox::new(&mut self.consent, "I consent to storing this encrypted workbook for 30 days."));
-            if self.consent {
+        let mut list = self.library && self.authenticated && !self.loaded && !self.pending;
+        let mut next_page = false;
+        let mut sign_out = false;
+        let mut render = |ui: &mut egui::Ui| {
+            if !self.library {
+                ui.label(format!("Workbook: {:.1} KiB · Link expires after 30 days", self.bytes.len() as f64 / 1024.0));
+                ui.label("All sheets, including hidden sheets, will be included.");
+                ui.label("GridCraft encrypts the workbook before uploading it to Cloudflare.");
+                ui.add_enabled(!self.pending, egui::Checkbox::new(&mut self.consent, "I consent to storing this encrypted workbook for 30 days."));
+            }
+            if self.library && !self.authenticated {
+                ui.label("Sign-in is optional. Open, edit, save locally, and download without an account.");
+                ui.label("Sign in to see your protected cloud sheets across devices.");
+            }
+            if self.consent || self.library {
                 if self.session.is_empty() {
                     start = ui.add_enabled(!self.pending, egui::Button::new("Sign in / Create account")).clicked();
                 } else if !self.authenticated {
@@ -120,6 +185,31 @@ impl ShareDialog {
                     ui.label(format!("Verification code: {}", self.user_code));
                     poll = ui.add_enabled(!self.pending && now >= self.next_poll, egui::Button::new("Check sign-in")).clicked();
                     ctx.request_repaint_after(std::time::Duration::from_secs(1));
+                } else if self.library {
+                    ui.horizontal(|ui| {
+                        list |= ui.add_enabled(!self.pending, egui::Button::new("Refresh sheets")).clicked();
+                        sign_out = ui.add_enabled(!self.pending, egui::Button::new("Sign out")).clicked();
+                    });
+                    ui.label("Encrypted cloud snapshots · open with the share password. Names and workbook contents stay private.");
+                    if self.loaded && self.sheets.is_empty() && !self.pending {
+                        ui.label("No saved cloud sheets yet. Choose Save As > Save on Grid Viewer to save an encrypted snapshot.");
+                    }
+                    for sheet in &self.sheets {
+                        let Some(id) = sheet["id"].as_str().filter(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())) else {
+                            continue;
+                        };
+                        let size = sheet["bytes"].as_u64().unwrap_or(0) as f64 / 1024.0;
+                        let days = ((sheet["expires"].as_f64().unwrap_or(0.0) * 1000.0 - now) / 86_400_000.0).max(0.0).ceil();
+                        ui.horizontal(|ui| {
+                            ui.label(format!("Workbook {} · {size:.1} KiB · {days:.0} days left", id.get(..8).unwrap_or(id)));
+                            if ui.button("Open sheet").clicked() {
+                                ctx.open_url(egui::OpenUrl::new_tab(format!("https://grid-viewer.pages.dev/grid#s={id}")));
+                            }
+                        });
+                    }
+                    if self.cursor.is_some() && self.sheets.len() < 500 {
+                        next_page = ui.add_enabled(!self.pending, egui::Button::new("Load more sheets")).clicked();
+                    }
                 } else {
                     ui.label("Signed in. Choose a separate share password; send it separately from the link.");
                     ui.add_enabled(
@@ -140,8 +230,40 @@ impl ShareDialog {
                 ui.spinner();
                 ui.label("Working…");
             }
-            close = ui.add_enabled(!self.pending, egui::Button::new("Cancel")).clicked();
-        });
+            if !self.library {
+                close = ui.add_enabled(!self.pending, egui::Button::new("Cancel")).clicked();
+            }
+        };
+        if let Some(ui) = container {
+            render(ui);
+        } else {
+            egui::Window::new("Share a protected workbook").collapsible(false).resizable(false).show(ctx, render);
+        }
+        if sign_out {
+            self.session.clear();
+            self.authenticated = false;
+            self.sheets.clear();
+            self.loaded = false;
+            self.cursor = None;
+            self.verification_url.clear();
+            self.user_code.clear();
+            self.error.clear();
+            list = false;
+            next_page = false;
+        }
+        if list || next_page {
+            self.loaded = true;
+            let path = if next_page {
+                let query = url::form_urlencoded::Serializer::new(String::new()).append_pair("cursor", self.cursor.as_deref().unwrap_or("")).finish();
+                format!("links/list?{query}")
+            } else {
+                self.sheets.clear();
+                self.cursor = None;
+                "links/list".into()
+            };
+            let token = self.session.clone();
+            self.launch(ctx, move || request(&path, Some(&token), b"").map(Reply::Listed));
+        }
         if start || poll {
             let token = self.session.clone();
             if poll {
@@ -240,6 +362,7 @@ fn encrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, String> {
 
 /// Desktop shell owns the private dialog state; none of it enters workbook/prefs/command logs.
 pub struct Host {
+    library: Rc<RefCell<ShareDialog>>,
     inbox: Rc<RefCell<Option<Vec<u8>>>>,
     dialog: Option<ShareDialog>,
     link: Option<String>,
@@ -249,7 +372,10 @@ impl Host {
         let inbox = Rc::new(RefCell::new(None));
         let capture = inbox.clone();
         app.services.protected_share = Some(Box::new(move |bytes| *capture.borrow_mut() = Some(bytes)));
-        Self { inbox, dialog: None, link: None }
+        let library = Rc::new(RefCell::new(ShareDialog::library()));
+        let account = library.clone();
+        app.services.cloud_library_ui = Some(Box::new(move |ui| account.borrow_mut().show_in(ui)));
+        Self { inbox, dialog: None, link: None, library }
     }
     pub fn ui(&mut self, ctx: &egui::Context, app: &mut gridcraft_ui_egui::SheetApp) {
         let incoming = self.inbox.borrow_mut().take();
@@ -258,7 +384,10 @@ impl Host {
                 app.message = Some(("Sharing".into(), "Finish or cancel the existing sharing dialog first.".into()));
             } else {
                 match ShareDialog::new(bytes) {
-                    Ok(dialog) => self.dialog = Some(dialog),
+                    Ok(mut dialog) => {
+                        dialog.inherit_login(&self.library.borrow());
+                        self.dialog = Some(dialog);
+                    }
                     Err(error) => app.message = Some(("Sharing".into(), error)),
                 }
             }
@@ -318,6 +447,32 @@ mod tests {
         if let Ok(path) = std::env::var("GRIDCRAFT_SHARE_SNAPSHOT") {
             h.render().unwrap().save(path).unwrap();
         }
+    }
+
+    #[test]
+    fn guest_home_keeps_local_work_available_without_network_jobs() {
+        use egui_kittest::kittest::Queryable as _;
+        let mut session = gridcraft_engine::Session::new();
+        session.new_workbook();
+        let mut app = gridcraft_ui_egui::SheetApp::new(session, Default::default());
+        let host = Host::attach(&mut app);
+        app.open_dialog("backstage", serde_json::json!({"page":"home"}));
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut gridcraft_ui_egui::SheetApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(3);
+        assert!(h.query_by_label("Sign in / Create account").is_some());
+        assert!(!host.library.borrow().pending);
+        assert!(host.library.borrow().session.is_empty());
+        h.get_by_role_and_label(egui::accesskit::Role::Button, "Blank workbook").click();
+        h.run_steps(3);
+        assert_eq!(h.state().session.documents().len(), 2);
+        assert!(h.state().backstage.is_none());
+        assert!(!host.library.borrow().authenticated);
     }
 
     #[test]

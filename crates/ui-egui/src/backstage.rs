@@ -538,6 +538,12 @@ fn home(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcome) 
     section(ui, lang, "New");
     new_tiles(app, ui, out);
     ui.add_space(22.0);
+    if let Some(library) = &mut app.services.cloud_library_ui {
+        ui.heading("My sheets");
+        ui.add_space(8.0);
+        library(ui);
+        ui.add_space(22.0);
+    }
     section(ui, lang, "Recent");
     recent_list(app, ui, bs, out, 8);
     if app.ui.recent.len() > 8 {
@@ -683,6 +689,15 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
         } else if export_as(app, fmt) {
             out.close = true;
         }
+    }
+    if app.services.protected_share.is_some() {
+        ui.add_space(12.0);
+        if ui.button("Save on Grid Viewer…").clicked() {
+            app.open_dialog("saveGridViewer", json!({}));
+            out.close = true;
+        }
+        dim(ui, "Save an encrypted XLSX copy for 30 days. Requires sign-in, your consent, and a password.");
+        dim(ui, "Downloading and editing locally never require an account.");
     }
     ui.add_space(18.0);
     dim(ui, lang.tr("A CSV file, web page or PDF is a copy: the workbook keeps its own file."));

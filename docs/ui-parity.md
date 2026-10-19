@@ -10,6 +10,14 @@ Sources: `crates/ui-egui/src` (ribbon, grid, editor, formula bar, dialogs, panes
 `crates/engine/src/cmd` (shortcuts in command specs), the owner's black-box notes
 (`plan/excel/observed-ui.md`, local only) and user issues.
 
+## Grid Viewer host integration (2026-10-19)
+
+Hosts may provide an optional Home cloud library and a protected-save callback. File > Save As
+shows **Save on Grid Viewer…** when that callback is connected. It hands an XLSX snapshot to the
+host's consent, sign-in, and password flow; opening Save As never uploads. Local editing and
+download remain available without signing in. Cloud snapshots do not mark the local file saved.
+Cloud storage currently expires after 30 days. Live authentication rollout remains pending.
+
 ## Window and chrome
 
 | Element | Excel | GridCraft | Status |

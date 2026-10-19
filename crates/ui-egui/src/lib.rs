@@ -164,6 +164,8 @@ pub struct Notice {
 /// Host services the platform shell provides (file pickers, opening URLs).
 #[derive(Default)]
 pub struct Services {
+    /// Host-owned account library rendered on Home. Contains no workbook credentials in engine state.
+    pub cloud_library_ui: Option<Box<dyn FnMut(&mut egui::Ui)>>,
     /// Open a host-owned consent/sign-in/password flow for a local XLSX snapshot.
     /// The host must never upload until the user explicitly consents and submits.
     pub protected_share: Option<Box<dyn Fn(Vec<u8>)>>,
@@ -740,6 +742,25 @@ impl SheetApp {
             return;
         }
         match name {
+            "saveGridViewer" => {
+                if !self.commit_edit(0, 0, false, false) {
+                    return;
+                }
+                if self.services.protected_share.is_none() {
+                    self.alert("Cloud saving is not connected in this build. Download a copy to keep your workbook.".into());
+                    return;
+                }
+                match self.run("file.saveBytes", json!({"format": "xlsx"})) {
+                    Ok(value) => {
+                        if let Some(bytes) = value.get("base64").and_then(Json::as_str).and_then(gridcraft_engine::io::base64_decode)
+                            && let Some(start) = &self.services.protected_share
+                        {
+                            start(bytes);
+                        }
+                    }
+                    Err(error) => self.alert(error),
+                }
+            }
             "shareGridViewer" => {
                 if !self.commit_edit(0, 0, false, false) {
                     return;

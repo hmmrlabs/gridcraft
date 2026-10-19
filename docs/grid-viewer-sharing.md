@@ -1,6 +1,6 @@
 # Grid Viewer sharing
 
-Updated: 2026-10-19. Revision: M1.5, protected-sharing handoff (work in progress).
+Updated: 2026-10-19. Revision: M1.7, optional cloud library and Save As integration (rollout pending).
 
 Share → Share with Grid Viewer creates an XLSX snapshot locally. Copy Link copies a self-contained `#xlsx=` link; Open Viewer / Shorten Link opens the browser editor. The viewer can optionally create encrypted short links with a 30-day expiration. Desktop sharing itself makes no network request.
 
@@ -11,3 +11,9 @@ All workbook sheets, including hidden sheets, are included. Anyone with the comp
 Links currently target `https://grid-viewer.pages.dev/grid` while the custom domain awaits DNS activation. No third-party shortening service receives links. Preserve original files because unsupported XLSX features may not round-trip.
 
 The browser protected-sharing flow is implemented in the separate private viewer repository but remains undeployed pending WorkOS configuration and end-to-end verification. Current production legacy short links have a 1.5 MiB limit and use a fragment key. The native flow compiles but genuine WorkOS sign-in, authenticated uploads, and recipient interoperability still require end-to-end verification.
+
+File > Home now exposes an optional host-owned **My sheets** library. Sign-in is optional;
+creating, opening, editing, downloading, and local saving remain available to guests.
+File > Save As > **Save on Grid Viewer…** passes an XLSX snapshot to the same protected-save
+flow regardless of snapshot size. It does not mark the local workbook saved. The library lists
+only the signed-in user's encrypted snapshots, with size and expiration; names remain private.
