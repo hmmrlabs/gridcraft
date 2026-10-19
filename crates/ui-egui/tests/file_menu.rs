@@ -253,11 +253,11 @@ fn grid_viewer_share_commits_draft_and_preserves_unsaved_state() {
     assert!(h.state().editor.is_some());
     h.get_by_label("Share").click();
     h.run_steps(3);
-    click(&mut h, "Share with Grid Viewer…");
+    click(&mut h, "Share with Hammer Sheets…");
     let dialog = h.state().dialog.as_ref().unwrap();
     assert_eq!(dialog.name(), "shareGridViewer");
     let url = dialog.values.get("url").unwrap().as_str().unwrap();
-    let payload = url.strip_prefix("https://grid-viewer.pages.dev/grid#xlsx=").unwrap();
+    let payload = url.strip_prefix("https://sheets.hammerlabs.ai/grid#xlsx=").unwrap();
     assert!(!payload.contains(['+', '/', '=']));
     let mut base64 = payload.replace('-', "+").replace('_', "/");
     while base64.len() % 4 != 0 {
@@ -306,7 +306,7 @@ fn grid_viewer_save_hands_off_snapshot_without_marking_local_work_saved() {
     h.state_mut().session.execute("cell.set", serde_json::json!({"cell":"A1", "input":"42"})).unwrap();
     choose(&mut h, "Save As");
     assert!(snapshots.lock().unwrap().is_empty(), "opening Save As must not save to the cloud");
-    click(&mut h, "Save on Grid Viewer…");
+    click(&mut h, "Save on Hammer Sheets…");
     assert!(h.state().backstage.is_none());
     assert!(h.state().session.active().unwrap().is_dirty(), "a cloud snapshot does not save the local file");
     let snapshots = snapshots.lock().unwrap();

@@ -192,7 +192,7 @@ impl ShareDialog {
                     });
                     ui.label("Encrypted cloud snapshots · open with the share password. Names and workbook contents stay private.");
                     if self.loaded && self.sheets.is_empty() && !self.pending {
-                        ui.label("No saved cloud sheets yet. Choose Save As > Save on Grid Viewer to save an encrypted snapshot.");
+                        ui.label("No saved cloud sheets yet. Choose Save As > Save on Hammer Sheets to save an encrypted snapshot.");
                     }
                     for sheet in &self.sheets {
                         let Some(id) = sheet["id"].as_str().filter(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())) else {
@@ -203,7 +203,7 @@ impl ShareDialog {
                         ui.horizontal(|ui| {
                             ui.label(format!("Workbook {} · {size:.1} KiB · {days:.0} days left", id.get(..8).unwrap_or(id)));
                             if ui.button("Open sheet").clicked() {
-                                ctx.open_url(egui::OpenUrl::new_tab(format!("https://grid-viewer.pages.dev/grid#s={id}")));
+                                ctx.open_url(egui::OpenUrl::new_tab(format!("https://sheets.hammerlabs.ai/grid#s={id}")));
                             }
                         });
                     }
@@ -286,7 +286,7 @@ impl ShareDialog {
                     let value = request("links", Some(&token), &ciphertext)?;
                     let id =
                         value["id"].as_str().filter(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())).ok_or("Invalid share ID.")?;
-                    Ok(Reply::Uploaded(format!("https://grid-viewer.pages.dev/grid#s={id}")))
+                    Ok(Reply::Uploaded(format!("https://sheets.hammerlabs.ai/grid#s={id}")))
                 });
             }
         }
@@ -337,7 +337,7 @@ fn request(path: &str, token: Option<&str>, bytes: &[u8]) -> Result<Value, Strin
     }
     serde_json::from_slice(&body).map_err(|_| "Invalid sharing response.".into())
 }
-/// Same v2 wire format as Grid Viewer's browser WebCrypto implementation.
+/// Same v2 wire format as Hammer Sheets's browser WebCrypto implementation.
 fn encrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, String> {
     if bytes.len() > MAX_PROTECTED {
         return Err("Protected sharing supports workbooks up to 16 MiB.".into());

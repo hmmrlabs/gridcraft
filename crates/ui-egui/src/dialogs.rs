@@ -774,7 +774,7 @@ impl Dialog {
                 dialog
             }
             "pickList" => Dialog::custom("pickList", "Pick From List", json!({})),
-            "shareGridViewer" => Dialog::custom("shareGridViewer", "Share with Grid Viewer", params.clone()),
+            "shareGridViewer" => Dialog::custom("shareGridViewer", "Share with Hammer Sheets", params.clone()),
             "saveCopy" => Dialog::custom("saveCopy", "Save a Copy", json!({"format": p("format")})),
             "saveChanges" => Dialog::custom("saveChanges", "Save Changes?", json!({"title": p("title")})),
             "start" => Dialog::custom("start", "GridCraft", json!({})),
@@ -1184,9 +1184,9 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                                 }
                             }
                         } else {
-                            ui.label("Protected sharing is not connected in this build. Save a copy, open it in Grid Viewer, then choose Create short link when signup is available.");
-                            if ui.button("Open Grid Viewer").clicked() {
-                                ctx.open_url(egui::OpenUrl::new_tab("https://grid-viewer.pages.dev/grid"));
+                            ui.label("Protected sharing is not connected in this build. Save a copy, open it in Hammer Sheets, then choose Create short link when signup is available.");
+                            if ui.button("Open Hammer Sheets").clicked() {
+                                ctx.open_url(egui::OpenUrl::new_tab("https://sheets.hammerlabs.ai/grid"));
                             }
                         }
                         if ui.button("Close").clicked() { open = false; }

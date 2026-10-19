@@ -692,7 +692,7 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
     }
     if app.services.protected_share.is_some() {
         ui.add_space(12.0);
-        if ui.button("Save on Grid Viewer…").clicked() {
+        if ui.button("Save on Hammer Sheets…").clicked() {
             app.open_dialog("saveGridViewer", json!({}));
             out.close = true;
         }

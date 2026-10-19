@@ -12,7 +12,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?} (xlsx by default; .csv/.tsv/.json/.html/.pdf by extension)", has_doc, save),
         cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path} (.xlsx, .csv, .tsv, .json, .html, or .pdf: a PDF of the active sheet)", has_doc, save_as),
         cmd!(query "file.saveBytes", "Encode Workbook", [], None, "{format?: xlsx|csv|tsv|json|html} → {base64}", has_doc, save_bytes),
-        cmd!(query "file.shareGridViewer", "Share with Grid Viewer", ["File", "Share"], None, "{} → {url, bytes} up to 48 KiB, otherwise {requiresUpload, bytes, maxBytes}; no upload or dialog", has_doc, share_grid_viewer),
+        cmd!(query "file.shareGridViewer", "Share with Hammer Sheets", ["File", "Share"], None, "{} → {url, bytes} up to 48 KiB, otherwise {requiresUpload, bytes, maxBytes}; no upload or dialog", has_doc, share_grid_viewer),
         cmd!(noundo "file.close", "Close", ["File"], Some("Cmd+W"), "{force?: bool}", has_doc, close),
         cmd!(noundo "file.exportCsv", "Export as CSV", ["File", "Export"], None, "{path, sheet?}", has_doc, |s, p| export(s, p, "csv")),
         cmd!(noundo "file.exportHtml", "Save as Web Page", ["File", "Export"], None, "{path}", has_doc, |s, p| export(s, p, "html")),
@@ -40,7 +40,7 @@ fn share_grid_viewer(s: &mut Session, _: &Json) -> Result<Json> {
         return Ok(json!({"requiresUpload": true, "bytes": bytes.len(), "maxBytes": 16 * 1024 * 1024}));
     }
     let payload = crate::io::base64_encode(&bytes).trim_end_matches('=').replace('+', "-").replace('/', "_");
-    Ok(json!({"url": format!("https://grid-viewer.pages.dev/grid#xlsx={payload}"), "bytes": bytes.len()}))
+    Ok(json!({"url": format!("https://sheets.hammerlabs.ai/grid#xlsx={payload}"), "bytes": bytes.len()}))
 }
 
 fn new_workbook(s: &mut Session, p: &Json) -> Result<Json> {
