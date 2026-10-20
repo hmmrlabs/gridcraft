@@ -778,18 +778,20 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
         if !resp.dragged() {
             app.grid.touch_pan = false;
         }
-    } else {
+    } else if !app.read_only {
         crate::paper_view::interact(app, ui, &resp, &geo, sh, &wb);
         interact(app, ui, &resp, &geo, sh, &wb);
     }
-    crate::text_box::show(app, ui, &geo, sh);
-    if app.editor.as_ref().is_some_and(|e| !e.from_formula_bar) {
-        in_cell_editor(app, ui, &geo, sh, &wb);
+    if !app.read_only {
+        crate::text_box::show(app, ui, &geo, sh);
+        if app.editor.as_ref().is_some_and(|e| !e.from_formula_bar) {
+            in_cell_editor(app, ui, &geo, sh, &wb);
+        }
+        filter_menu(app, ui, &geo, previous_popups.0 == app.grid.filter_menu);
+        list_picker(app, ui, &geo, previous_popups.1 == app.grid.list_picker);
+        header_menu(app, ui, previous_popups.2 == app.grid.header_menu);
+        context_menu(app, ui);
     }
-    filter_menu(app, ui, &geo, previous_popups.0 == app.grid.filter_menu);
-    list_picker(app, ui, &geo, previous_popups.1 == app.grid.list_picker);
-    header_menu(app, ui, previous_popups.2 == app.grid.header_menu);
-    context_menu(app, ui);
     let track_x = if rtl { (available.left(), rect.left()) } else { (rect.right(), available.right()) };
     vertical_scrollbar(app, ui, sh, &geo, track_x, max_y, &t);
     if app.session.clipboard.is_some() {

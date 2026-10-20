@@ -239,6 +239,8 @@ pub struct SheetApp {
     pub ui: UiState,
     /// The window chrome to draw (see [`Chrome`]).
     pub chrome: Chrome,
+    /// Host-owned viewing mode: no workbook editing through UI commands or gestures.
+    pub read_only: bool,
     pub views: HashMap<(u64, usize), SheetView>,
     pub editor: Option<editor::EditState>,
     pub text_box_editor: Option<text_box::EditState>,
@@ -298,6 +300,7 @@ impl SheetApp {
             session,
             ui: UiState::default(),
             chrome: Chrome::default(),
+            read_only: false,
             views: HashMap::new(),
             editor: None,
             text_box_editor: None,
@@ -368,6 +371,14 @@ impl SheetApp {
 
     /// Runs an engine command (or a UI command) and handles UI requests it makes.
     pub fn run(&mut self, id: &str, params: Json) -> Result<Json, String> {
+        if self.read_only
+            && !matches!(
+                id,
+                "file.open" | "sheet.activate" | "sheet.next" | "sheet.previous" | "view.zoom" | "selection.set" | "selection.move" | "edit.copy"
+            )
+        {
+            return Err("This workbook is in view mode.".into());
+        }
         let r = self.run_command(id, params);
         // This copy leaves the system clipboard alone: note what it holds, so Paste can tell
         // that GridCraft's copy is newer while that text is still there.
@@ -922,6 +933,9 @@ impl SheetApp {
 
     /// Starts editing the active cell. `text` replaces the content (typing) or pre-fills it.
     pub fn begin_edit(&mut self, text: Option<String>, from_formula_bar: bool) {
+        if self.read_only {
+            return;
+        }
         if let Err(e) = self.commit_text_box_edit() {
             self.message = Some(("Text Box".into(), clean_error(&e)));
             return;
@@ -1159,6 +1173,54 @@ impl SheetApp {
         if let Some(mut batch) = self.synthetic.pop_front() {
             raw.events.append(&mut batch);
         }
+    }
+
+    /// Minimal viewing surface. No editor chrome, shortcuts, menus, or object editing.
+    pub fn view_ui(&mut self, ui: &mut egui::Ui, show_tabs: bool) {
+        if !self.fonts_ready || self.fonts_rebind {
+            ui.ctx().request_repaint();
+            return;
+        }
+        self.read_only = true;
+        self.editor = None;
+        self.text_box_editor = None;
+        let t = theme::Tokens::get(ui.ctx());
+        egui::Panel::bottom("viewer_navigation").exact_size(30.0).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if show_tabs {
+                    let sheets: Vec<_> = self
+                        .session
+                        .active()
+                        .map(|d| {
+                            d.wb.sheets
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, s)| s.visibility == gridcraft_engine::model::Visibility::Visible)
+                                .map(|(i, s)| (i, s.name.clone(), i == d.wb.active_sheet))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    egui::ScrollArea::horizontal().max_width(ui.available_width() * 0.6).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            for (i, name, active) in sheets {
+                                if ui.selectable_label(active, name).clicked() {
+                                    let _ = self.run("sheet.activate", json!({"sheet":i}));
+                                }
+                            }
+                        });
+                    });
+                }
+                let avail = ui.available_rect_before_wrap();
+                let track = egui::Rect::from_min_max(
+                    egui::pos2(avail.left() + 8.0, avail.center().y - 7.0),
+                    egui::pos2(avail.right(), avail.center().y + 7.0),
+                );
+                crate::grid::horizontal_scrollbar(self, ui, track, &t);
+            });
+        });
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.grid_bg)).show(ui, |ui| {
+            grid::show(self, ui);
+        });
     }
 
     /// Lays out the whole window.
